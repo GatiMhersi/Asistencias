@@ -20,43 +20,66 @@ const StudentAdmin: React.FC<Props> = ({ onUpdate }) => {
   const [newCourseName, setNewCourseName] = useState('');
   const [selectedCourseId, setSelectedCourseId] = useState('');
   const [newStudentName, setNewStudentName] = useState('');
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => { load(); }, []);
 
   const load = async () => {
-    const data = await apiService.getCourses();
-    setCourses(data);
+    try {
+      setLoading(true);
+      const data = await apiService.getCourses();
+      setCourses(data);
+    } catch (e) {
+      console.error("Error al cargar cursos:", e);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleCreateCourse = async () => {
     if (!newCourseName.trim()) return;
-    const newCourse: Course = {
-      _id: Date.now().toString(),
-      name: newCourseName,
-      students: []
-    };
-    await apiService.saveCourse(newCourse);
-    setNewCourseName('');
-    load();
-    onUpdate();
+    try {
+      const newCourse: Course = {
+        _id: `_temp_${Date.now()}`, // ID temporal que el backend ignorará al crear
+        name: newCourseName,
+        students: []
+      };
+      await apiService.saveCourse(newCourse);
+      setNewCourseName('');
+      await load();
+      onUpdate();
+    } catch (e: any) {
+      alert("Error al crear curso: " + e.message);
+    }
   };
 
   const handleAddStudent = async () => {
     if (!newStudentName.trim() || !selectedCourseId) return;
     const course = courses.find(c => c._id === selectedCourseId);
     if (course) {
-      course.students.push({ id: Date.now().toString(), name: newStudentName });
-      await apiService.saveCourse(course);
-      setNewStudentName('');
-      load();
+      try {
+        const updatedStudents = [
+          ...course.students, 
+          { id: Date.now().toString(), name: newStudentName }
+        ];
+        await apiService.saveCourse({ ...course, students: updatedStudents });
+        setNewStudentName('');
+        await load();
+      } catch (e: any) {
+        alert("Error al añadir alumno: " + e.message);
+      }
     }
   };
 
   const handleDeleteCourse = async (id: string) => {
     if (confirm('¿Eliminar este curso y todos sus alumnos?')) {
-      await apiService.deleteCourse(id);
-      load();
-      onUpdate();
+      try {
+        await apiService.deleteCourse(id);
+        await load();
+        onUpdate();
+      } catch (e: any) {
+        alert("Error al eliminar curso: " + e.message);
+      }
     }
   };
 
@@ -66,21 +89,28 @@ const StudentAdmin: React.FC<Props> = ({ onUpdate }) => {
 
     const reader = new FileReader();
     reader.onload = async (evt) => {
-      const bstr = evt.target?.result;
-      const wb = XLSX.read(bstr, { type: 'binary' });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const data = XLSX.utils.sheet_to_json<any>(ws);
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const data = XLSX.utils.sheet_to_json<any>(ws);
 
-      const newStudents = data.map((row, i) => ({
-        id: (Date.now() + i).toString(),
-        name: row.Nombre || row.Alumno || Object.values(row)[0]
-      }));
+        const newStudents = data.map((row, i) => ({
+          id: (Date.now() + i).toString(),
+          name: row.Nombre || row.Alumno || Object.values(row)[0]
+        }));
 
-      const course = courses.find(c => c._id === courseId);
-      if (course) {
-        course.students = [...course.students, ...newStudents];
-        await apiService.saveCourse(course);
-        load();
+        const course = courses.find(c => c._id === courseId);
+        if (course) {
+          const updatedCourse = {
+            ...course,
+            students: [...course.students, ...newStudents]
+          };
+          await apiService.saveCourse(updatedCourse);
+          await load();
+        }
+      } catch (error: any) {
+        alert("Error al importar Excel: " + error.message);
       }
     };
     reader.readAsBinaryString(file);
@@ -101,13 +131,15 @@ const StudentAdmin: React.FC<Props> = ({ onUpdate }) => {
             value={newCourseName}
             onChange={e => setNewCourseName(e.target.value)}
           />
-          <button onClick={handleCreateCourse} className="bg-indigo-600 text-white px-6 rounded-2xl font-bold">Crear</button>
+          <button onClick={handleCreateCourse} className="bg-indigo-600 text-white px-6 rounded-2xl font-bold hover:bg-indigo-700 transition-colors">Crear</button>
         </div>
       </div>
 
       {/* Listado de Cursos */}
       <div className="grid gap-4">
-        {courses.map(course => (
+        {loading ? (
+          <div className="text-center py-10 text-slate-400">Cargando cursos...</div>
+        ) : courses.map(course => (
           <div key={course._id} className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 space-y-4">
             <div className="flex justify-between items-center">
               <div>
@@ -152,7 +184,7 @@ const StudentAdmin: React.FC<Props> = ({ onUpdate }) => {
           </div>
         ))}
 
-        {courses.length === 0 && (
+        {!loading && courses.length === 0 && (
           <div className="text-center py-10">
             <InboxIcon className="h-12 w-12 text-slate-200 mx-auto" />
             <p className="text-slate-400 text-sm mt-2">No hay cursos para mostrar</p>
