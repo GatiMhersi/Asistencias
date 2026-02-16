@@ -1,105 +1,65 @@
 
-import React, { useState } from 'react';
-import * as XLSX from 'xlsx';
-import { AttendanceStatus, Student, AttendanceSession, UserRole } from './types';
-import AttendanceView from './components/AttendanceView';
-import SummaryView from './components/SummaryView';
+import React, { useState, useEffect } from 'react';
+import { UserRole, Course, AttendanceSession, AttendanceStatus } from './types';
 import RoleSelection from './components/RoleSelection';
 import TeacherRubric from './components/TeacherRubric';
+import AttendanceView from './components/AttendanceView';
+import SummaryView from './components/SummaryView';
+import StudentAdmin from './components/StudentAdmin';
+import HistoryView from './components/HistoryView';
+import { apiService } from './services/apiService';
 import { 
-  AcademicCapIcon,
-  ArrowLeftIcon
+  AcademicCapIcon, 
+  ArrowLeftIcon,
+  HomeIcon,
+  ClockIcon,
+  UserGroupIcon,
+  PlusCircleIcon
 } from '@heroicons/react/24/outline';
 
 const App: React.FC = () => {
   const [role, setRole] = useState<UserRole>(null);
-  const [view, setView] = useState<'upload' | 'taking' | 'summary' | 'rubric'>('upload');
-  const [session, setSession] = useState<AttendanceSession | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [view, setView] = useState<'home' | 'admin' | 'taking' | 'history' | 'summary'>('home');
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [attendanceSession, setAttendanceSession] = useState<AttendanceSession | null>(null);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  useEffect(() => {
+    loadCourses();
+  }, []);
 
-    setLoading(true);
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      const bstr = evt.target?.result;
-      const wb = XLSX.read(bstr, { type: 'binary' });
-      const wsname = wb.SheetNames[0];
-      const ws = wb.Sheets[wsname];
-      const data = XLSX.utils.sheet_to_json<any>(ws);
-
-      const students: Student[] = data.map((row, index) => {
-        const nameKey = Object.keys(row).find(key => 
-          key.toLowerCase().includes('nombre') || 
-          key.toLowerCase().includes('alumno') ||
-          key.toLowerCase().includes('apellido')
-        ) || Object.keys(row)[0];
-
-        return {
-          id: String(index),
-          name: row[nameKey] || `Alumno ${index + 1}`,
-          status: AttendanceStatus.PENDING
-        };
-      });
-
-      setSession({
-        date: new Date().toLocaleDateString('es-AR'),
-        groupName: file.name.replace(/\.[^/.]+$/, ""),
-        students
-      });
-      setLoading(false);
-      setView('taking');
-    };
-    reader.readAsBinaryString(file);
+  const loadCourses = async () => {
+    const data = await apiService.getCourses();
+    setCourses(data);
   };
 
-  const updateStudentStatus = (id: string, status: AttendanceStatus) => {
-    if (!session) return;
-    const newStudents = session.students.map(s => 
-      s.id === id ? { ...s, status, lastUpdated: new Date().toISOString() } : s
-    );
-    setSession({ ...session, students: newStudents });
-  };
-
-  const finalizeAttendance = () => {
-    setView('summary');
-  };
-
-  const reset = () => {
-    setSession(null);
-    setView('upload');
-    if (role === 'preceptor') {
-       // stay in preceptor upload
-    }
-  };
-
-  const handleBackToRoles = () => {
-    setRole(null);
-    setView('upload');
-    setSession(null);
+  // Fixed: Use AttendanceStatus.PENDING instead of legacy status 2 and remove 'as any'
+  const handleStartAttendance = (course: Course) => {
+    setSelectedCourse(course);
+    setAttendanceSession({
+      date: new Date().toLocaleDateString('es-AR'),
+      groupName: course.name,
+      students: course.students.map(s => ({ ...s, status: AttendanceStatus.PENDING }))
+    });
+    setView('taking');
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 pb-20 md:pb-0">
-      <header className="bg-indigo-700 text-white shadow-lg p-4 flex items-center justify-between sticky top-0 z-50">
+    <div className="min-h-screen bg-slate-50 text-slate-900 pb-20 md:pb-0 font-sans">
+      <header className="bg-slate-900 text-white shadow-xl p-4 flex items-center justify-between sticky top-0 z-50">
         <div className="flex items-center gap-2">
           {role && (
-            <button 
-              onClick={handleBackToRoles}
-              className="p-1 hover:bg-indigo-600 rounded-lg transition-colors mr-2"
-            >
+            <button onClick={() => { setRole(null); setView('home'); }} className="p-2 hover:bg-slate-800 rounded-full transition-all">
               <ArrowLeftIcon className="h-5 w-5" />
             </button>
           )}
-          <AcademicCapIcon className="h-8 w-8" />
-          <h1 className="text-xl font-bold tracking-tight">Gestión Escolar</h1>
+          <AcademicCapIcon className="h-8 w-8 text-indigo-400" />
+          <h1 className="text-xl font-bold">Escuela Digital</h1>
         </div>
         {role && (
-          <div className="text-xs bg-indigo-600 px-3 py-1 rounded-full border border-indigo-400 font-semibold uppercase tracking-wider">
-            {role}
-          </div>
+          <span className="text-[10px] font-black uppercase tracking-widest bg-indigo-500 px-3 py-1 rounded-full">
+            Modo {role}
+          </span>
         )}
       </header>
 
@@ -107,42 +67,80 @@ const App: React.FC = () => {
         {!role ? (
           <RoleSelection onSelect={setRole} />
         ) : role === 'preceptor' ? (
-          <>
-            {view === 'upload' && (
-               <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-6">
-                <div className="bg-white p-8 rounded-3xl shadow-xl border border-indigo-100 max-w-md w-full">
-                  <h2 className="text-2xl font-bold mb-2">Preceptoría</h2>
-                  <p className="text-slate-500 mb-8">Sube el Excel de alumnos para tomar asistencia.</p>
-                  <label className="block w-full cursor-pointer bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-4 px-6 rounded-2xl transition-all shadow-lg active:scale-95">
-                    Cargar Excel Alumnos
-                    <input type="file" className="hidden" accept=".xlsx, .xls" onChange={handleFileUpload} />
-                  </label>
-                </div>
+          <div className="space-y-6">
+            {/* Sub-navegación Preceptor */}
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+              <button 
+                onClick={() => setView('home')} 
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-all ${view === 'home' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-slate-500 shadow-sm border'}`}
+              >
+                <HomeIcon className="h-4 w-4" /> Mis Cursos
+              </button>
+              <button 
+                onClick={() => setView('admin')} 
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-all ${view === 'admin' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-slate-500 shadow-sm border'}`}
+              >
+                <UserGroupIcon className="h-4 w-4" /> Gestión Alumnos
+              </button>
+              <button 
+                onClick={() => setView('history')} 
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-all ${view === 'history' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-slate-500 shadow-sm border'}`}
+              >
+                <ClockIcon className="h-4 w-4" /> Historial
+              </button>
+            </div>
+
+            {view === 'home' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                {courses.length === 0 ? (
+                  <div className="col-span-full bg-white p-12 rounded-3xl text-center border-2 border-dashed border-slate-200">
+                    <UserGroupIcon className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+                    <h3 className="text-lg font-bold text-slate-400">No hay cursos registrados</h3>
+                    <button onClick={() => setView('admin')} className="mt-4 text-indigo-600 font-bold hover:underline">Ir a Gestión para crear uno</button>
+                  </div>
+                ) : (
+                  courses.map(course => (
+                    <div key={course._id} className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex justify-between items-center group hover:shadow-md transition-all">
+                      <div>
+                        <h3 className="text-xl font-black text-slate-800">{course.name}</h3>
+                        <p className="text-sm text-slate-500">{course.students.length} alumnos registrados</p>
+                      </div>
+                      <button 
+                        onClick={() => handleStartAttendance(course)}
+                        className="bg-indigo-50 text-indigo-600 p-3 rounded-2xl group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-sm"
+                      >
+                        <PlusCircleIcon className="h-6 w-6" />
+                      </button>
+                    </div>
+                  ))
+                )}
               </div>
             )}
-            {view === 'taking' && session && (
+
+            {view === 'admin' && <StudentAdmin onUpdate={loadCourses} />}
+            {view === 'history' && <HistoryView />}
+            {view === 'taking' && attendanceSession && (
               <AttendanceView 
-                students={session.students} 
-                onUpdate={updateStudentStatus} 
-                onFinalize={finalizeAttendance}
-                loading={loading}
+                students={attendanceSession.students} 
+                onUpdate={(id, status) => {
+                  const newStudents = attendanceSession.students.map(s => s.id === id ? { ...s, status } : s);
+                  setAttendanceSession({ ...attendanceSession, students: newStudents });
+                }} 
+                onFinalize={() => setView('summary')}
+                loading={false}
               />
             )}
-            {view === 'summary' && session && (
-              <SummaryView session={session} onReset={reset} />
+            {view === 'summary' && attendanceSession && (
+              <SummaryView 
+                session={attendanceSession} 
+                onReset={() => { setView('home'); setAttendanceSession(null); }} 
+              />
             )}
-          </>
+          </div>
         ) : (
-          <TeacherRubric onBack={handleBackToRoles} />
+          <TeacherRubric onBack={() => setRole(null)} />
         )}
       </main>
-
-      {loading && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex flex-col items-center justify-center text-white">
-          <div className="animate-spin rounded-full h-16 w-16 border-4 border-indigo-400 border-t-transparent mb-4"></div>
-          <p className="font-semibold text-lg">Cargando datos...</p>
-        </div>
-      )}
     </div>
   );
 };

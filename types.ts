@@ -9,13 +9,20 @@ export interface Student {
   id: string;
   name: string;
   status: AttendanceStatus;
-  lastUpdated?: string;
 }
 
-export interface AttendanceSession {
+export interface Course {
+  _id: string;
+  name: string;
+  students: { id: string; name: string }[];
+}
+
+export interface AttendanceHistory {
+  _id: string;
   date: string;
-  groupName: string;
-  students: Student[];
+  courseName: string;
+  presentCount: number;
+  absentCount: number;
 }
 
 export type UserRole = 'preceptor' | 'profesor' | null;
@@ -26,4 +33,11 @@ export interface RubricData {
   difficultStudents: string;
   description: string;
   date: string;
+}
+
+// Added missing AttendanceSession interface
+export interface AttendanceSession {
+  date: string;
+  groupName: string;
+  students: Student[];
 }
