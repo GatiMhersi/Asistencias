@@ -1,0 +1,8 @@
+
+{
+  "name": "Asistencia Pro - Sistema de Preceptoría",
+  "description": "Una aplicación móvil y web para gestionar la asistencia escolar basada en archivos Excel, permitiendo a los preceptores tomar asistencia rápidamente en el aula y generar reportes inteligentes.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

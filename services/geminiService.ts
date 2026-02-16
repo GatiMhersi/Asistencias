@@ -1,0 +1,1 @@
+// Archivo eliminado - No se requiere IA en este proyecto
