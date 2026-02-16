@@ -1,30 +1,27 @@
 
 import { MongoClient } from 'mongodb';
 
-if (!process.env.MONGODB_URI) {
-  throw new Error('Por favor define la variable MONGODB_URI en el archivo .env');
-}
-
-const uri = process.env.MONGODB_URI;
+const uri = process.env.MONGODB_URI || "";
 const options = {};
+
+if (!uri) {
+  console.warn('Advertencia: MONGODB_URI no está definida. Las funciones de API fallarán.');
+}
 
 let client: MongoClient;
 let clientPromise: Promise<MongoClient>;
 
-if (process.env.NODE_ENV === 'development') {
-  // En desarrollo, usa una variable global para no saturar las conexiones durante el hot reloading
-  // Fix: Use globalThis instead of global to resolve name resolution error in certain environments
-  let globalWithMongo = globalThis as typeof globalThis & {
-    _mongoClientPromise?: Promise<MongoClient>;
-  };
+declare global {
+  var _mongoClientPromise: Promise<MongoClient> | undefined;
+}
 
-  if (!globalWithMongo._mongoClientPromise) {
+if (process.env.NODE_ENV === 'development') {
+  if (!global._mongoClientPromise) {
     client = new MongoClient(uri, options);
-    globalWithMongo._mongoClientPromise = client.connect();
+    global._mongoClientPromise = client.connect();
   }
-  clientPromise = globalWithMongo._mongoClientPromise;
+  clientPromise = global._mongoClientPromise;
 } else {
-  // En producción (Vercel), es mejor no usar una variable global
   client = new MongoClient(uri, options);
   clientPromise = client.connect();
 }

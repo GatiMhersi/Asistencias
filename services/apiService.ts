@@ -1,15 +1,13 @@
 
-import { Course, AttendanceHistory, AttendanceStatus } from '../types';
+import { Course, AttendanceStatus } from '../types';
 
 /**
  * apiService conecta el frontend con las Vercel API Routes.
- * Todas las operaciones ahora persisten en MongoDB Atlas.
  */
 
 const fetchAPI = async (endpoint: string, options?: RequestInit) => {
-  // Eliminamos el slash inicial si existe para manejar la ruta de forma relativa
+  // Limpiamos el endpoint para asegurar que no tenga slashes extras
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
-  // En muchos entornos de desarrollo, la ruta debe ser relativa al origen de la app
   const url = `/api/${cleanEndpoint}`;
   
   try {
@@ -22,20 +20,12 @@ const fetchAPI = async (endpoint: string, options?: RequestInit) => {
       },
     });
 
-    const contentType = response.headers.get('content-type');
-    
     if (!response.ok) {
-      // Manejo de errores cuando el servidor devuelve un 404 o similar
-      if (contentType && contentType.includes('application/json')) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || errorData.message || `Error ${response.status}`);
-      } else {
-        const textError = await response.text();
-        console.error('Respuesta no-JSON del servidor:', textError.slice(0, 100));
-        throw new Error(`Servidor respondió con estado ${response.status}. Verifique que el backend esté corriendo.`);
-      }
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Error del servidor: ${response.status}`);
     }
 
+    const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
       return response.json();
     }

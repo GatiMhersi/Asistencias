@@ -1,27 +1,14 @@
+
 {
-  "name": "asistencia-pro---sistema-de-preceptoría",
-  "private": true,
-  "version": "0.0.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
-  },
+  "name": "asistencia-pro",
+  "version": "1.0.0",
+  "description": "Sistema de asistencia escolar",
+  "main": "index.html",
   "dependencies": {
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "@google/genai": "^1.41.0",
-    "xlsx": "^0.18.5",
-    "jspdf": "^2.5.1",
-    "@heroicons/react": "^2.2.0",
-    "mongodb": "^7.1.0",
-    "@vercel/node": "^5.6.3"
+    "mongodb": "^6.3.0",
+    "@vercel/node": "^3.0.0"
   },
   "devDependencies": {
-    "@types/node": "^22.14.0",
-    "@vitejs/plugin-react": "^5.0.0",
-    "typescript": "~5.8.2",
-    "vite": "^6.2.0"
+    "typescript": "^5.0.0"
   }
 }
