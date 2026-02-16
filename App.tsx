@@ -1,18 +1,19 @@
 
 import React, { useState } from 'react';
 import * as XLSX from 'xlsx';
-import { AttendanceStatus, Student, AttendanceSession } from './types';
+import { AttendanceStatus, Student, AttendanceSession, UserRole } from './types';
 import AttendanceView from './components/AttendanceView';
 import SummaryView from './components/SummaryView';
+import RoleSelection from './components/RoleSelection';
+import TeacherRubric from './components/TeacherRubric';
 import { 
-  ClipboardDocumentCheckIcon, 
-  ArrowUpTrayIcon, 
   AcademicCapIcon,
-  UserGroupIcon
+  ArrowLeftIcon
 } from '@heroicons/react/24/outline';
 
 const App: React.FC = () => {
-  const [view, setView] = useState<'upload' | 'taking' | 'summary'>('upload');
+  const [role, setRole] = useState<UserRole>(null);
+  const [view, setView] = useState<'upload' | 'taking' | 'summary' | 'rubric'>('upload');
   const [session, setSession] = useState<AttendanceSession | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -69,74 +70,70 @@ const App: React.FC = () => {
   const reset = () => {
     setSession(null);
     setView('upload');
+    if (role === 'preceptor') {
+       // stay in preceptor upload
+    }
+  };
+
+  const handleBackToRoles = () => {
+    setRole(null);
+    setView('upload');
+    setSession(null);
   };
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 pb-20 md:pb-0">
       <header className="bg-indigo-700 text-white shadow-lg p-4 flex items-center justify-between sticky top-0 z-50">
         <div className="flex items-center gap-2">
+          {role && (
+            <button 
+              onClick={handleBackToRoles}
+              className="p-1 hover:bg-indigo-600 rounded-lg transition-colors mr-2"
+            >
+              <ArrowLeftIcon className="h-5 w-5" />
+            </button>
+          )}
           <AcademicCapIcon className="h-8 w-8" />
-          <h1 className="text-xl font-bold tracking-tight">Control de Asistencia</h1>
+          <h1 className="text-xl font-bold tracking-tight">Gestión Escolar</h1>
         </div>
-        {session && (
-          <div className="text-sm bg-indigo-600 px-3 py-1 rounded-full border border-indigo-400">
-            {session.groupName}
+        {role && (
+          <div className="text-xs bg-indigo-600 px-3 py-1 rounded-full border border-indigo-400 font-semibold uppercase tracking-wider">
+            {role}
           </div>
         )}
       </header>
 
       <main className="max-w-4xl mx-auto p-4 md:p-8">
-        {view === 'upload' && (
-          <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-6">
-            <div className="bg-white p-8 rounded-3xl shadow-xl border border-indigo-100 max-w-md w-full">
-              <div className="bg-indigo-50 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <ArrowUpTrayIcon className="h-10 w-10 text-indigo-600" />
+        {!role ? (
+          <RoleSelection onSelect={setRole} />
+        ) : role === 'preceptor' ? (
+          <>
+            {view === 'upload' && (
+               <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-6">
+                <div className="bg-white p-8 rounded-3xl shadow-xl border border-indigo-100 max-w-md w-full">
+                  <h2 className="text-2xl font-bold mb-2">Preceptoría</h2>
+                  <p className="text-slate-500 mb-8">Sube el Excel de alumnos para tomar asistencia.</p>
+                  <label className="block w-full cursor-pointer bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-4 px-6 rounded-2xl transition-all shadow-lg active:scale-95">
+                    Cargar Excel Alumnos
+                    <input type="file" className="hidden" accept=".xlsx, .xls" onChange={handleFileUpload} />
+                  </label>
+                </div>
               </div>
-              <h2 className="text-2xl font-bold mb-2">Cargar Listado</h2>
-              <p className="text-slate-500 mb-8">
-                Sube el Excel con los nombres de los alumnos para comenzar.
-              </p>
-              
-              <label className="block w-full cursor-pointer bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-4 px-6 rounded-2xl transition-all shadow-lg active:scale-95">
-                Seleccionar Archivo
-                <input 
-                  type="file" 
-                  className="hidden" 
-                  accept=".xlsx, .xls" 
-                  onChange={handleFileUpload} 
-                />
-              </label>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4 w-full max-w-md">
-              <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
-                <UserGroupIcon className="h-6 w-6 text-indigo-400 mb-2" />
-                <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Grupos</p>
-                <p className="text-sm text-slate-600">Gestión por curso</p>
-              </div>
-              <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
-                <ClipboardDocumentCheckIcon className="h-6 w-6 text-indigo-400 mb-2" />
-                <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Reporte</p>
-                <p className="text-sm text-slate-600">Exportación directa</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {view === 'taking' && session && (
-          <AttendanceView 
-            students={session.students} 
-            onUpdate={updateStudentStatus} 
-            onFinalize={finalizeAttendance}
-            loading={loading}
-          />
-        )}
-
-        {view === 'summary' && session && (
-          <SummaryView 
-            session={session} 
-            onReset={reset} 
-          />
+            )}
+            {view === 'taking' && session && (
+              <AttendanceView 
+                students={session.students} 
+                onUpdate={updateStudentStatus} 
+                onFinalize={finalizeAttendance}
+                loading={loading}
+              />
+            )}
+            {view === 'summary' && session && (
+              <SummaryView session={session} onReset={reset} />
+            )}
+          </>
+        ) : (
+          <TeacherRubric onBack={handleBackToRoles} />
         )}
       </main>
 

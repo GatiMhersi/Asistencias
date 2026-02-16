@@ -17,3 +17,13 @@ export interface AttendanceSession {
   groupName: string;
   students: Student[];
 }
+
+export type UserRole = 'preceptor' | 'profesor' | null;
+
+export interface RubricData {
+  topic: string;
+  comprehension: string;
+  difficultStudents: string;
+  description: string;
+  date: string;
+}
