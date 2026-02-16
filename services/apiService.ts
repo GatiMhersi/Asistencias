@@ -2,48 +2,77 @@
 import { Course, AttendanceHistory, AttendanceStatus } from '../types';
 
 /**
- * Nota: En una app real, estas funciones harían fetch() a tu API de Node.js.
- * Aquí implementamos una lógica persistente en localStorage para que puedas probar la funcionalidad.
+ * apiService conecta el frontend con las Vercel API Routes.
+ * Todas las operaciones ahora persisten en MongoDB Atlas.
  */
+
+const fetchAPI = async (endpoint: string, options?: RequestInit) => {
+  const response = await fetch(`/api/${endpoint}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options?.headers,
+    },
+  });
+  if (!response.ok) {
+    throw new Error(`Error en la petición: ${response.statusText}`);
+  }
+  return response.json();
+};
 
 export const apiService = {
   // --- Cursos ---
   getCourses: async (): Promise<Course[]> => {
-    const data = localStorage.getItem('asistencia_cursos');
-    return data ? JSON.parse(data) : [];
+    return fetchAPI('courses');
   },
 
   saveCourse: async (course: Course) => {
-    const courses = await apiService.getCourses();
-    const index = courses.findIndex(c => c._id === course._id);
-    if (index >= 0) courses[index] = course;
-    else courses.push(course);
-    localStorage.setItem('asistencia_cursos', JSON.stringify(courses));
+    // Si tiene _id, es una actualización (PUT), si no, es creación (POST)
+    if (course._id && !course._id.startsWith('temp_')) {
+      return fetchAPI('courses', {
+        method: 'PUT',
+        body: JSON.stringify(course),
+      });
+    } else {
+      // Limpiamos un posible ID temporal antes de enviar a Mongo
+      const { _id, ...rest } = course;
+      return fetchAPI('courses', {
+        method: 'POST',
+        body: JSON.stringify(rest),
+      });
+    }
   },
 
   deleteCourse: async (id: string) => {
-    const courses = await apiService.getCourses();
-    const filtered = courses.filter(c => c._id !== id);
-    localStorage.setItem('asistencia_cursos', JSON.stringify(filtered));
+    return fetchAPI(`courses?id=${id}`, {
+      method: 'DELETE',
+    });
   },
 
   // --- Asistencia ---
   saveAttendance: async (courseName: string, date: string, records: any[]) => {
-    const history = await apiService.getHistory();
-    const newEntry = {
-      _id: Date.now().toString(),
+    const entry = {
       date,
       courseName,
       presentCount: records.filter(r => r.status === 'P').length,
       absentCount: records.filter(r => r.status === 'A').length,
       details: records
     };
-    history.push(newEntry);
-    localStorage.setItem('asistencia_historial', JSON.stringify(history));
+    return fetchAPI('attendance', {
+      method: 'POST',
+      body: JSON.stringify(entry),
+    });
   },
 
   getHistory: async (): Promise<any[]> => {
-    const data = localStorage.getItem('asistencia_historial');
-    return data ? JSON.parse(data) : [];
+    return fetchAPI('attendance');
+  },
+
+  // --- Rúbricas ---
+  saveRubric: async (rubricData: any) => {
+    return fetchAPI('rubrics', {
+      method: 'POST',
+      body: JSON.stringify(rubricData),
+    });
   }
 };

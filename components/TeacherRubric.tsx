@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { jsPDF } from 'jspdf';
 import { DocumentArrowDownIcon, PencilSquareIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 import { RubricData } from '../types';
+import { apiService } from '../services/apiService';
 
 interface Props {
   onBack: () => void;
@@ -18,13 +19,13 @@ const TeacherRubric: React.FC<Props> = ({ onBack }) => {
   });
 
   const [submitted, setSubmitted] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const handleExportPDF = () => {
     const doc = new jsPDF();
     const margin = 20;
     let y = 30;
 
-    // Header
     doc.setFontSize(22);
     doc.setTextColor(40, 40, 40);
     doc.text('Rúbrica Docente Diaria', margin, y);
@@ -35,7 +36,6 @@ const TeacherRubric: React.FC<Props> = ({ onBack }) => {
     doc.text(`Fecha: ${formData.date}`, margin, y);
     y += 20;
 
-    // Questions and Answers
     const questions = [
       { q: '1. Tema de la clase:', a: formData.topic },
       { q: '2. Nivel de comprensión general:', a: formData.comprehension },
@@ -52,7 +52,6 @@ const TeacherRubric: React.FC<Props> = ({ onBack }) => {
       
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(60, 60, 60);
-      // Split text to fit page width
       const lines = doc.splitTextToSize(item.a, 170);
       doc.text(lines, margin, y);
       y += (lines.length * 7) + 10;
@@ -66,9 +65,17 @@ const TeacherRubric: React.FC<Props> = ({ onBack }) => {
     doc.save(`Rubrica_${formData.date.replace(/\//g, '-')}.pdf`);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
+    setSaving(true);
+    try {
+      await apiService.saveRubric(formData);
+      setSubmitted(true);
+    } catch (error) {
+      alert("Error al guardar la rúbrica en la base de datos.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (submitted) {
@@ -79,7 +86,7 @@ const TeacherRubric: React.FC<Props> = ({ onBack }) => {
             <CheckCircleIcon className="h-12 w-12 text-emerald-600" />
           </div>
           <h2 className="text-2xl font-bold text-slate-800">Rúbrica Generada</h2>
-          <p className="text-slate-500">Los datos han sido procesados correctamente. Ahora puedes exportar el reporte en PDF.</p>
+          <p className="text-slate-500">Los datos han sido guardados en la base de datos y están listos para exportar.</p>
           
           <div className="pt-6 flex flex-col gap-4">
             <button 
@@ -165,9 +172,10 @@ const TeacherRubric: React.FC<Props> = ({ onBack }) => {
 
         <button 
           type="submit"
-          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-5 rounded-2xl shadow-lg transition-all active:scale-95"
+          disabled={saving}
+          className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-bold py-5 rounded-2xl shadow-lg transition-all active:scale-95 flex justify-center items-center"
         >
-          GENERAR RÚBRICA
+          {saving ? 'GUARDANDO...' : 'GENERAR RÚBRICA'}
         </button>
       </form>
     </div>
